@@ -620,6 +620,18 @@ impl JLink {
         self.read_u32().map(HardwareVersion::from_u32)
     }
 
+    fn select_protocol_interface(&mut self) -> Result<(), DebugProbeError> {
+        if self.caps.contains(Capability::SelectIf) {
+            let jlink_interface = match self.protocol {
+                WireProtocol::Swd => Interface::Swd,
+                WireProtocol::Jtag => Interface::Jtag,
+            };
+
+            self.select_interface(jlink_interface)?;
+        }
+        Ok(())
+    }
+
     /// Selects the interface to use for talking to the target MCU.
     ///
     /// Switching interfaces will reset the configured transfer speed, so [`JLink::set_speed`]
@@ -1016,6 +1028,9 @@ impl DebugProbe for JLink {
             return Err(DebugProbeError::UnsupportedSpeed(speed_khz));
         }
 
+        // GetSpeeds reports the speeds of the active interface.
+        self.select_protocol_interface()?;
+
         if let Ok(speeds) = self.read_interface_speeds() {
             tracing::debug!("Supported speeds: {:?}", speeds);
 
@@ -1041,14 +1056,7 @@ impl DebugProbe for JLink {
 
         tracing::debug!("Attaching with protocol '{}'", self.protocol);
 
-        if self.caps.contains(Capability::SelectIf) {
-            let jlink_interface = match self.protocol {
-                WireProtocol::Swd => Interface::Swd,
-                WireProtocol::Jtag => Interface::Jtag,
-            };
-
-            self.select_interface(jlink_interface)?;
-        }
+        self.select_protocol_interface()?;
 
         // Log some information about the probe
         tracing::debug!("J-Link: Capabilities: {:?}", self.caps);
