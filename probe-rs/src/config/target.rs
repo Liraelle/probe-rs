@@ -110,6 +110,7 @@ impl Target {
                         execute: false,
                         boot: false,
                     }),
+                    alias_of: None,
                 }));
             }
 

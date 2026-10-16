@@ -1,4 +1,4 @@
-use crate::serialize::{hex_range, hex_u_int};
+use crate::serialize::{hex_option, hex_range, hex_u_int};
 use serde::{Deserialize, Serialize};
 use std::{iter::Peekable, ops::Range};
 
@@ -16,6 +16,9 @@ pub struct NvmRegion {
     /// True if the memory region is an alias of a different memory region.
     #[serde(default)]
     pub is_alias: bool,
+    /// Start address of the flash this region aliases. Data for this region is flashed there.
+    #[serde(default, serialize_with = "hex_option")]
+    pub alias_of: Option<u64>,
     /// Access permissions for the region.
     #[serde(default)]
     pub access: Option<MemoryAccess>,
@@ -25,6 +28,16 @@ impl NvmRegion {
     /// Returns whether the region is accessible by the given core.
     pub fn accessible_by(&self, core_name: &str) -> bool {
         self.cores.iter().any(|c| c == core_name)
+    }
+
+    /// Maps an address in this region to the flash it aliases, see [`NvmRegion::alias_of`].
+    pub fn resolve_alias(&self, address: u64) -> u64 {
+        match self.alias_of {
+            Some(canonical_start) => address
+                .wrapping_sub(self.range.start)
+                .wrapping_add(canonical_start),
+            None => address,
+        }
     }
 
     /// Returns the access permissions for the region.
